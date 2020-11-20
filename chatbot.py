@@ -19,7 +19,7 @@ from collections import defaultdict
 dst = defaultdict(list)
 # State transitions are defined as a dictionary with key = to initial state and value = to a dictionary{ key is transition ("yes" or "no"): value is next state}
 state_transition = { 
-    "greeting": {"yes": "activity_check_in", "no" : "activity_check_in"},
+    "greeting": {"yes": "activity_check_in", "no" : "terminate"},
     "activity_check_in": {"yes": "next_activity","no":"ability_check_in"}, 
     "ability_check_in": {"yes":"next_activity", "no": "sub_activity"},
     "sub_activity": {"yes": "activity_check_in", "no": "finish_check_in"},
@@ -106,19 +106,15 @@ def nlu(input=""):
     if "dialogue_state_history" in dst and len(dst["dialogue_state_history"]) > 0:
             current_state = dst["dialogue_state_history"][0]
 
-            if current_state == "greeting":
-                slots_and_values.append((current_state,"yes"))
+            if check_yes_input(input):
+                slots_and_values.append((current_state,"yes")) 
+            elif check_no_input(input):
+                slots_and_values.append((current_state,"no"))
             else:
-                # look for a yes or no statement
-                if check_yes_input(input):
-                    slots_and_values.append((current_state,"yes")) 
-                elif check_no_input(input):
-                    slots_and_values.append((current_state,"no"))
-                else:
+                answer = ask_again()
+                while answer == "unsure":
                     answer = ask_again()
-                    while answer == "unsure":
-                        answer = ask_again()
-                    slots_and_values.append((current_state, answer))
+                slots_and_values.append((current_state, answer))
 
             if current_state == "activity_check_in":
                 slots_and_values.append((current_state, current_activity))
@@ -282,8 +278,8 @@ def nlg(state, slots=[]):
 
     # Build at least two templates for each dialogue state that your chatbot might use.
     templates["greeting"] = []
-    templates["greeting"].append("Hello. How are you feeling today?")
-    templates["greeting"].append("Good day! How are you feeling right now?")
+    templates["greeting"].append("Hello. I am your Buddy here to help you track your goals. You ready to start?")
+    templates["greeting"].append("Good morning :) I am Buddy. I am your friend and daily helper. Should we get started?")
     
     templates["activity_check_in_bed"] = []
     templates["activity_check_in_bed"].append("Have you gotten out of bed yet?") 
