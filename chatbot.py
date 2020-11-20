@@ -19,12 +19,13 @@ from collections import defaultdict
 dst = defaultdict(list)
 # State transitions are defined as a dictionary with key = to initial state and value = to a dictionary{ key is transition ("yes" or "no"): value is next state}
 state_transition = { 
-    "greeting": {"yes": "activity_check_in", "no" : "terminate"},
+    "greeting": {"yes": "activity_check_in", "no" : "end"},
     "activity_check_in": {"yes": "next_activity","no":"ability_check_in"}, 
     "ability_check_in": {"yes":"next_activity", "no": "sub_activity"},
     "sub_activity": {"yes": "activity_check_in", "no": "finish_check_in"},
     "next_activity": {"yes": "activity_check_in", "no": "finish_check_in"},
-    "finish_check_in": {"yes": "terminate", "no": "next_activity"}  
+    "finish_check_in": {"yes": "end", "no": "next_activity"},
+    "end": {"yes" : "terminate", "no": "terminate"}
      #end state does not have a tansition, will be marker for end
 }
 
@@ -38,7 +39,7 @@ yes_words = ["yes","yeah", "yee", "yeet", "ya", "yah", "yey", "yay", "yep", "yup
              "indeed", "affirmative", "certainly", "aye", "very well", "all right", "of course", "roger", "righto", "uh-huh"]
 
 #https://www.powerthesaurus.org/no/synonyms
-no_words = ["yesn't", "negative", "nix", "refuse", "no", "nope", "nah", "na", "not", "never", "negative", "nay", "nae", "naw", "can't", "cannot", "wont", "wouldn't", "shant", "dont", "don't"]
+no_words = ["yesn't", "negative", "nix", "refuse", "no", "nope", "nah", "na", "not", "never", "negative", "nay", "nae", "naw", "can't", "cannot", "wont", "wouldn't", "shant"]
 
 # State                             Permissible values              Description
 # ----------------------            ---------------------           -----------------------------------------------------------------
@@ -126,6 +127,8 @@ def nlu(input=""):
             if current_state == "next_activity":
                 current_activity = get_next_activity()
                 slots_and_values.append((current_state, current_activity))
+            if current_state == "end":
+                slots_and_values.append((current_state, "yes"))
         # TODO add remaining states
         #states = ["greeting", "activity_check_in","ability_check_in", "sub_activity", "next_activity", "finish_check_in", "end","dialogue_state_history"]
 
@@ -221,27 +224,9 @@ def dialogue_policy(dst=[]):
             # check dialogue history, and get most recent state
             last_state = dst["dialogue_state_history"][0]
 
-            if last_state == "greeting":
-                dst["dialogue_state_history"].insert(0,"activity_check_in")
-                next_state = "activity_check_in"
-                slot_values = current_activity
-            elif last_state == "activity_check_in":
-                # get the transition rule for most recent state
-                transition = state_transition[last_state]
-
-                # get the slot values for the state in dialogue state dictionary
-                status = dst[last_state]
-
-                if "yes" in status:
-                    next_state = transition["yes"]
-                    slot_values = current_activity
-                # otherwise use no transition
-                elif "no" in status:
-                    next_state = transition["no"]
-                    slot_values = current_activity
-               
-                dst["dialogue_state_history"].insert(0,next_state)
-
+            if last_state == "end":
+                next_state = "terminate"
+                slot_values = []
             else:
                 # get the transition rule for most recent state
                 transition = state_transition[last_state]
@@ -260,7 +245,7 @@ def dialogue_policy(dst=[]):
                 slot_values = []
     else:
         next_state = "greeting"
-        slot_values = "yes"
+        slot_values = []
         update_dst([("dialogue_state_history", "greeting")])
     return next_state, slot_values
 	
@@ -328,9 +313,9 @@ def nlg(state, slots=[]):
     templates["finish_check_in"].append("Would you like to stop for today?")
     templates["finish_check_in"].append("You ready to finish up?")
 
-    templates["terminate"] = []
-    templates["terminate"].append("I am so proud of you for trying today.")
-    templates["terminate"].append("Great job! You accomplished as much as you could.")
+    templates["end"] = []
+    templates["end"].append("I am so proud of you for trying today.")
+    templates["end"].append("Great job! You accomplished as much as you could.")
 
     # When you implement this for real, you'll need to randomly select one of the templates for
     # the specified state, rather than always selecting template 0.  You probably also will not
@@ -363,6 +348,8 @@ def nlg(state, slots=[]):
         output = templates[state][response_idx]
 
         return output
+    if state == "terminate":
+        return "goodbye"
     else:
         return ""
 # Use this main function to test your code when running it from a terminal
@@ -404,6 +391,7 @@ def main():
         
         # Print the output to the terminal.
         print(output)
+
         
 
 
